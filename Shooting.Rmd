@@ -1,0 +1,146 @@
+---
+title: "Shooting"
+author: "N. Doerksen"
+date: "2023-11-10"
+output: pdf_document
+---
+
+## Libaries Used
+
+```{r libraries, include = FALSE}
+library(tidyverse)
+library(lubridate)
+library(maps)
+library(sp)
+library(ggmap)
+library(tidyr)
+library(ggplot2)
+library(dplyr)
+library(data.table)
+library(ggrepel)
+
+```
+
+## Data
+```{r Shooting, echo=FALSE}
+url <- "https://data.cityofnewyork.us/api/views/833y-fsy8/rows.csv?accessType=DOWNLOAD"
+shooting_data <- read_csv(url)
+head(shooting_data)
+```
+
+## Data cleaned
+I have decided to remove "duplicate keys", the key in this data set seems to reference the event as an object. There may be many instance of an event if there is multiple perps and/or vict.  This shows that this data is not normalized, as well as showing a need to carefully scrutinize the data set. 
+
+```{r clean}
+clean_shooting_data <- shooting_data %>%
+  rename(
+    Date = OCCUR_DATE,
+    Time = OCCUR_TIME,
+    Key = INCIDENT_KEY,
+    Borough = BORO,
+    Murder_Flag = STATISTICAL_MURDER_FLAG) %>%
+  
+  mutate(Date = mdy(Date)) %>%
+  distinct(Key, .keep_all = TRUE) %>%
+  arrange(Date, Time) %>%
+  select(Key:Borough,Murder_Flag:VIC_RACE, Latitude, Longitude) 
+  
+#print(clean_shooting_data, n = 100)
+
+head(clean_shooting_data)
+
+#clean_shooting_data <- clean_shooting_data %>%
+ # mutate(date_year = format(clean_shooting_data$Date, format="%Y") %>%
+ #select(Key:Borough,Murder_Flag:VIC_RACE, Latitude, Longitude, date_year) %>%
+```
+## Questions I could ask of this data.
+* how many murders per borough?
+* how many shootings occured with the race being the same for perp and vict
+* heat map of shootings.
+* is gun violence up or down over time?
+* is the gun violence prportional to murders?
+* functions I havent used yet, filter(), group_by(), count(), any form of join, ...
+* death rate per 1000 due to gun violence/compare boroughs
+* **what is the ratio of murders by race over total gun violence**
+
+Census data for the boroughs taken from https://www.citypopulation.de/en/usa/newyorkcity/#google_vignette
+*census data for 2010 and 2020 is averaged 
+Bronx = 1385108 + 1472654 // 2 = 1428881
+Brooklyn = 2504700 + 2736074 // 2 = 2620387
+Manhattan = 1585873 + 1694251 // 2 = 1640062
+Queens = 2230722 + 2405464 // 2 = 2318093
+Staten Island 468730 + 495747 // 2 = 482238
+
+``` {r}
+Date_diff <- clean_shooting_data %>%
+  summarise(max_date = max(Date), min_date = min(Date))
+shooting_data_timespan <- difftime(Date_diff$max_date, Date_diff$min_date, units = "weeks")
+shooting_data_timespan / 52
+# ~ 17 years
+```
+
+## Investigation
+
+###Data Manipulated to Investigate
+I am interested in understanding the locality of gun violence in the city of New York.  Theoretically if I was to move to New York this analysis might give me a clue as to where to settle and raise a family in a safe space (assuming I can afford any choice).  The data has specific geo-location data to pinpoint each incident. Firstly I want to know what the gross rates of shootings are in each borough.  
+
+```{r Borough death rates}
+death_rate_by_borough <- clean_shooting_data %>%
+  group_by(Borough) %>%
+  summarise(cases = n()) %>%
+  mutate(borough_pop = case_when(startsWith(Borough, "BRON") ~ 1428881, startsWith(Borough, "BROO") ~ 2620387, startsWith(Borough, "M") ~ 1640062, startsWith(Borough, "Q") ~ 2318093, startsWith(Borough, "S") ~ 482238), case_rate_per_1000_tot = cases / borough_pop * 1000, case_rate_per_1000_per_year = case_rate_per_1000_tot / 17) %>%
+  select(Borough,case_rate_per_1000_tot,case_rate_per_1000_per_year)
+```
+
+## Visualized data
+
+As can be seen below each borough has different incidents of shootings. That being said if you chose a place to live only on the bar graph below you may miss out on safe havens in the higher rate boroughs. That being said the Bronx and Brooklyn are areas of most concern when it comes gun violence.  
+
+```{r Shootings by Borough}
+a <- ggplot(death_rate_by_borough, aes(x=Borough, y=case_rate_per_1000_tot)) + 
+  geom_col(col="royalblue", fill="skyblue", size = 1, ) +
+  labs(title = "shootings per 1000 by Bourough", subtitle = "17 years of data", x ="Borough", y = "Shootings per 1000")
+
+a + geom_col(aes(fill = case_rate_per_1000_per_year))
+
+
+```
+## Murder context
+
+The overall rates for murder in the states show a fairly large range between states.  New York is above the average rate by state as you can see below. 
+
+```{r murder context for the whole of the states}
+data <- data.frame(murder = USArrests$Murder, state = tolower(rownames(USArrests)))
+map <- map_data("state")
+k <- ggplot(data, aes(fill = murder))
+k + geom_map(aes(map_id = state), map = map) + expand_limits(x = map$long, y = map$lat)
+```
+
+## Plotting Gun Violence in New York City
+
+Plotting the specific incidents over the map of New York shows very intuitively areas of most concern for violence. If I was a person thinking of moving to this city, I would avoid the Bronx and central Brooklyn.  This analysis comes with some biases.  Does the data tell the whole story, maybe other areas that seem safe actually have more stabbings than shootings.  further questions around race, age and gender abound when considering if you are safe to be in a area of high gun violence. Further when looking at the bar graph above you will notice that the rate of gun violence per 100 **per year** is actually quite low. At the high end you have a 0.025 percent per year chance of being involved in a shooting in the Bronx, and that does not filter for age, gender, time of day, did you know the perpitrator (are you running with a bad crowd).  
+```{r shootings on map}
+points <- clean_shooting_data %>%
+  select(Longitude, Latitude)
+
+p <- ggmap(get_googlemap(center = c(lon = -73.95, lat = 40.73),
+                         zoom = 11, scale = 2,
+                         maptype ='terrain'))
+p + geom_point(aes(x = Longitude, y = Latitude), data = points, colour = "#CC0000", alpha=0.25, size = 1)
+```
+You will notice that New Jersey is a haven and there is know shootings there... that is because the data-set used does not include New Jersey and in fact there is shootings that take place in that city, they are just not visualized. Further to not I have excluded 201 case as I would have to zoom out to include them and the map is better seen from this distance.
+
+##To create a model for a spatial data set I will create a density map.
+
+This model shows the hot-spots of violence that should be avoided if you are a very cautious individual.  Of course as a resident in the big apple you would have to occasionally traverse the areas of high crime to commute.  
+```{r heat map of shootings}
+p + stat_density2d(
+    aes(x = Longitude, y = Latitude, fill = after_stat(level), alpha = 0.25),
+    size = 0.1, bins = 20, data = points,
+    geom = "polygon"
+  ) 
+```
+## Post-amble
+
+The use of spatial data to visualize the threat of potentially lethal violence is a very compelling to anyone that values there life.  
+I showed my brother these map overlays as he lives in Brooklyn as of this writing.  His first comment was telling, "shootings to close the subways sometimes".  This comment shows one of the many biases you most be aware of when looking at a 2D heat map, namely the verticallity of the crime is a key factor.  This first bias leads to other speculations, likely time is a key factor in these extreme crimes (late at night), do the victim and the perpetrator know each-other?  This data is an aggregate of all the shootings over the last 17 years and includes murders and other shootings together.  Grossly you could use the heat map to avoid potentially lethal confrontations, but if most crimes occur in the subway (as is a potential hypothesis) than travelling in New York would be quite difficult for your everyday person if your intent was to avoid hot spots of crime. likely the socio-economic status of the neighborhoods with high gun violence rates should be examined.  They two highest areas of shoots seem to be the Bronx and Brooklyn, which does seem to say that areas with lower incomes have more shootings. 
