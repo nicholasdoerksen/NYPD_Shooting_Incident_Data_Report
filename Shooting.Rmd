@@ -26,7 +26,7 @@ To get the visualizations below to run you will need to set up your Google Cloud
 https://developers.google.com/maps/documentation/maps-static/get-api-key/
 
 After your account is set up you will need to import your API key into R so you can query Goolge static map. 
-To find the documentation to register your key enter **?google_key** into the console
+To find the documentation to register your key enter ?google_key into the console
 
 
 ## Data
