@@ -21,6 +21,14 @@ library(ggrepel)
 
 ```
 
+## ggmap and Google API
+To get the visualizations below to run you will need to set up your Google Cloud account. The link below show the steps required to set up your account.
+https://developers.google.com/maps/documentation/maps-static/get-api-key/
+
+After your account is set up you will need to import your API key into R so you can query Goolge static map. 
+To find the documentation to register your key enter **?google_key** into the console
+
+
 ## Data
 ```{r Shooting, echo=FALSE}
 url <- "https://data.cityofnewyork.us/api/views/833y-fsy8/rows.csv?accessType=DOWNLOAD"
