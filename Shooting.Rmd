@@ -22,11 +22,12 @@ library(ggrepel)
 ```
 
 ## ggmap and Google API
-To get the visualizations below to run you will need to set up your Google Cloud account. The link below show the steps required to set up your account.
+
+**To get the visualizations below to run you will need to set up your Google Cloud account. The link below show the steps required to set up your account.**
 https://developers.google.com/maps/documentation/maps-static/get-api-key/
 
-After your account is set up you will need to import your API key into R so you can query Goolge static map. 
-To find the documentation to register your key enter ?google_key into the console
+**After your account is set up you will need to import your API key into R so you can query Goolge static map.**
+**To find the documentation to register your key enter ?google_key into the console**
 
 
 ## Data
@@ -127,6 +128,7 @@ k + geom_map(aes(map_id = state), map = map) + expand_limits(x = map$long, y = m
 ## Plotting Gun Violence in New York City
 
 Plotting the specific incidents over the map of New York shows very intuitively areas of most concern for violence. If I was a person thinking of moving to this city, I would avoid the Bronx and central Brooklyn.  This analysis comes with some biases.  Does the data tell the whole story, maybe other areas that seem safe actually have more stabbings than shootings.  further questions around race, age and gender abound when considering if you are safe to be in a area of high gun violence. Further when looking at the bar graph above you will notice that the rate of gun violence per 100 **per year** is actually quite low. At the high end you have a 0.025 percent per year chance of being involved in a shooting in the Bronx, and that does not filter for age, gender, time of day, did you know the perpitrator (are you running with a bad crowd).  
+
 ```{r shootings on map}
 points <- clean_shooting_data %>%
   select(Longitude, Latitude)
@@ -136,11 +138,13 @@ p <- ggmap(get_googlemap(center = c(lon = -73.95, lat = 40.73),
                          maptype ='terrain'))
 p + geom_point(aes(x = Longitude, y = Latitude), data = points, colour = "#CC0000", alpha=0.25, size = 1)
 ```
+
 You will notice that New Jersey is a haven and there is know shootings there... that is because the data-set used does not include New Jersey and in fact there is shootings that take place in that city, they are just not visualized. Further to not I have excluded 201 case as I would have to zoom out to include them and the map is better seen from this distance.
 
 ##To create a model for a spatial data set I will create a density map.
 
 This model shows the hot-spots of violence that should be avoided if you are a very cautious individual.  Of course as a resident in the big apple you would have to occasionally traverse the areas of high crime to commute.  
+
 ```{r heat map of shootings}
 p + stat_density2d(
     aes(x = Longitude, y = Latitude, fill = after_stat(level), alpha = 0.25),
